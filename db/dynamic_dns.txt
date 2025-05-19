@@ -1,0 +1,4 @@
+no-ip.com
+dyndns.org
+duckdns.org
+myftp.biz
