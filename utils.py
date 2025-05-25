@@ -16,25 +16,24 @@ from settings import SCORE_DOMAIN_AGE, SCORE_VALID_SSL_CERTIFICATE, SCORE_SPECIA
 
 
 # Main function to get all domain information
-def get_all_domain_info(domain):
+def get_all_domain_info(domain,severity=1):
     """
     Get all information for a domain.
-    This function gets the domain age, DNS records, WHOIS information, and SSL certificate information.
+    This function gets the domain age, DNS records, WHOIS information, SSL certificate information, Levenshtein distance.
     
     :param domain: The domain name.
-    :return: A dictionary with all information.
+    :return: A boolean indicating whether is phishing or not.
     """
-    # Get WHOIS data once
-    whois_data = get_whois_data(domain)
-    
-    # print(f"WHOIS data for {domain}: {whois_data}")
-    
+        
     domain_info = {}
     
     #Levelshtin distance
     domain_info["similar_to_well_known_domain"] = similar_to_well_known_domain(domain)
     if domain_info["similar_to_well_known_domain"]:
         return True
+    
+    # Get WHOIS data once
+    whois_data = get_whois_data(domain)
     
     # Whois data
     domain_age = get_domain_age(whois_data)
@@ -77,7 +76,7 @@ def get_all_domain_info(domain):
     # Calculate score
     score = calculate_score(domain_info)
     
-    return score >= SCORE_MAX_THRESHOLD
+    return score >= SCORE_MAX_THRESHOLD/severity
 
 def calculate_score(domain_info):
     """
@@ -308,6 +307,7 @@ def is_ip_address(domain):
 def similar_to_well_known_domain(domain):
     """
     Check if the domain name is similar to a well-known domain.
+    Uses Levenshtein distance to calculate similarity with other domains.
     :param domain: The domain name.
     :return: True if the domain name is similar to a well-known domain, False otherwise.
     """

@@ -43,13 +43,15 @@ def predict(url: str):
 
 
 @app.get("/check-domains/")
-def check_domains(domains: str = Query(...)):
+def check_domains(domains: str = Query(...), severity: int = Query(default=1)):
     """
     Check the age of multiple domains if they haven't been analyzed yet.
     :param domain: List of domain names as query parameters.
     :return: A JSON object with the age of each domain and whether it was newly analyzed.
     """
     results = {}
+    
+    print(f"\n\nSeverity: {severity}\n\n")
         
     domains = domains.split(",")
                     
@@ -71,10 +73,10 @@ def check_domains(domains: str = Query(...)):
                 print(f"Checking domain: {domain}")
             
                 # Get domain information
-                is_phising = get_all_domain_info(domain)
+                is_phising = get_all_domain_info(domain,severity)
                 
                 # Store result for this specific domain
-                results[domain] = is_phising                    
+                results[domain] = is_phising
             except Exception as e:
                 # print(f"Error processing domain {domain}: {str(e)}")
                 results[domain] = {"error": str(e)}
