@@ -342,7 +342,7 @@ def similar_to_well_known_domain(domain):
 # Other functions
 # ============================================================================
 
-# Verificação de uso de DNS dinâmico (ex: domínios no-ip, dyndns
+# Verificação de uso de DNS dinâmico (ex: domínios no-ip, dyndns)
 def has_dynamic_dns(domain):
     """
     Verifica se o domínio utiliza DNS dinâmico (ex: no-ip, dyndns).

@@ -1,0 +1,164 @@
+// Add after showPhishingConfirmation function and before the storage check
+
+// Function to create and show tooltip for hover analysis
+function createHoverTooltip(link, domain, isPhishing) {
+  // Only show tooltip if protection is active
+  if (!window.phishingProtectionActive) return;
+  
+  // Create tooltip element if it doesn't exist
+  let tooltip = document.getElementById("phishing-hover-tooltip");
+  if (!tooltip) {
+    tooltip = document.createElement("div");
+    tooltip.id = "phishing-hover-tooltip";
+    tooltip.style.position = "fixed";
+    tooltip.style.padding = "8px 12px";
+    tooltip.style.borderRadius = "4px";
+    tooltip.style.fontSize = "14px";
+    tooltip.style.zIndex = "10001";
+    tooltip.style.maxWidth = "300px";
+    tooltip.style.boxShadow = "0 2px 10px rgba(0,0,0,0.2)";
+    tooltip.style.pointerEvents = "none"; // So it doesn't interfere with clicking
+    tooltip.style.transition = "opacity 0.2s";
+    document.body.appendChild(tooltip);
+  }
+  
+  // Set tooltip content based on phishing status
+  if (isPhishing) {
+    tooltip.style.backgroundColor = "rgba(255, 0, 0, 0.9)";
+    tooltip.style.color = "white";
+    tooltip.style.border = "1px solid darkred";
+    tooltip.innerHTML = `
+      <div style="display: flex; align-items: center;">
+        <span style="font-size: 18px; margin-right: 8px;">⚠️</span>
+        <div>
+          <div style="font-weight: bold; margin-bottom: 2px;">Alerta de Phishing!</div>
+          <div>${domain}</div>
+        </div>
+      </div>
+    `;
+  } else {
+    tooltip.style.backgroundColor = "rgba(40, 167, 69, 0.9)";
+    tooltip.style.color = "white";
+    tooltip.style.border = "1px solid darkgreen";
+    tooltip.innerHTML = `
+      <div style="display: flex; align-items: center;">
+        <span style="font-size: 18px; margin-right: 8px;">✓</span>
+        <div>
+          <div style="font-weight: bold; margin-bottom: 2px;">Link Seguro</div>
+          <div>${domain}</div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Position the tooltip near the mouse cursor
+  function updateTooltipPosition(event) {
+    tooltip.style.left = (event.clientX + 15) + "px";
+    tooltip.style.top = (event.clientY + 15) + "px";
+    
+    // Ensure tooltip stays within viewport
+    const rect = tooltip.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      tooltip.style.left = (event.clientX - rect.width - 10) + "px";
+    }
+    if (rect.bottom > window.innerHeight) {
+      tooltip.style.top = (event.clientY - rect.height - 10) + "px";
+    }
+  }
+  
+  // Show the tooltip
+  tooltip.style.opacity = "1";
+  tooltip.style.display = "block";
+  
+  // Add mousemove event to update tooltip position
+  link.addEventListener("mousemove", updateTooltipPosition);
+  
+  // Initial positioning
+  const rect = link.getBoundingClientRect();
+  tooltip.style.left = (rect.left + rect.width/2) + "px";
+  tooltip.style.top = (rect.top - 40) + "px";
+  
+  // Return the function to hide tooltip and clean up
+  return function hideTooltip() {
+    tooltip.style.opacity = "0";
+    setTimeout(() => {
+      tooltip.style.display = "none";
+    }, 200);
+    link.removeEventListener("mousemove", updateTooltipPosition);
+  };
+}
+
+// Function to add hover checks to all links
+function addHoverCheckToLinks() {
+  // Only add hover checks if protection is active
+  if (!window.phishingProtectionActive) return;
+  
+  // Cache for already checked domains to avoid repeated API calls
+  const checkedDomains = new Map();
+  
+  document.querySelectorAll("a").forEach(link => {
+    // Skip links without href or non-http links
+    if (!link.href || !link.href.startsWith("http")) return;
+    
+    let domain;
+    try {
+      domain = new URL(link.href).hostname;
+    } catch (e) {
+      console.error("URL inválida em hover check:", link.href);
+      return;
+    }
+    
+    // Don't add hover events to links already marked as phishing
+    if (link.style.border === "3px solid red") return;
+    
+    // Tracking variables
+    let hideTooltipFn = null;
+    let hoverTimer = null;
+    
+    // Add mouseenter event
+    link.addEventListener("mouseenter", function() {
+      if (!window.phishingProtectionActive) return;
+      
+      // Clear any existing timers
+      if (hoverTimer) clearTimeout(hoverTimer);
+      
+      // Add a small delay before checking (300ms)
+      hoverTimer = setTimeout(() => {
+        // If domain is already in cache, use cached result
+        if (checkedDomains.has(domain)) {
+          hideTooltipFn = createHoverTooltip(link, domain, checkedDomains.get(domain));
+          return;
+        }
+        
+        // Check the domain
+        browser.runtime.sendMessage({ 
+          action: "checkDomain", 
+          domain,
+          strictnessLevel: window.phishingProtectionStrictness
+        })
+        .then(response => {
+          if (!window.phishingProtectionActive) return;
+          
+          // Cache the result
+          checkedDomains.set(domain, response.phishing);
+          
+          // Show tooltip with result
+          hideTooltipFn = createHoverTooltip(link, domain, response.phishing);
+        });
+      }, 300);
+    });
+    
+    // Clear timer and hide tooltip when mouse leaves
+    link.addEventListener("mouseleave", function() {
+      if (hoverTimer) {
+        clearTimeout(hoverTimer);
+        hoverTimer = null;
+      }
+      
+      if (hideTooltipFn) {
+        hideTooltipFn();
+        hideTooltipFn = null;
+      }
+    });
+  });
+}
